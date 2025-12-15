@@ -28,6 +28,7 @@ def register(request):
                 'password': form.cleaned_data['password1'],
             }
             request.session['pending_user'] = user_data
+            print(f"[DEBUG] Dados salvos na sessão para {user_data['email']} - NÃO CRIOU USUÁRIO")
             
             # Gera código de verificação
             code = EmailVerification.generate_code()
@@ -168,6 +169,7 @@ def verify_email(request):
             if success:
                 # AGORA SIM cria o usuário no banco
                 User = auth.get_user_model()
+                print(f"[DEBUG] CRIANDO USUÁRIO NO BANCO: {user_data['username']} / {user_data['email']}")
                 user = User.objects.create_user(
                     username=user_data['username'],
                     email=user_data['email'],
@@ -176,6 +178,7 @@ def verify_email(request):
                     last_name=user_data['last_name'],
                     is_active=True
                 )
+                print(f"[DEBUG] USUÁRIO CRIADO COM SUCESSO: ID={user.id}")
                 
                 # Limpa dados temporários da sessão
                 del request.session['pending_user']
