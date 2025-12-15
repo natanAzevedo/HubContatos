@@ -18,4 +18,6 @@ urlpatterns = [
     path('user/login/', views.login_view, name='login'),
     path('user/logout/', views.logout_view, name='logout'),
     path('user/update/', views.user_update, name='user_update'),
+    path('user/verify/<int:user_id>/', views.verify_email, name='verify_email'),
+    path('user/resend/<int:user_id>/', views.resend_verification_code, name='resend_verification'),
 ]

@@ -272,3 +272,33 @@ class RegisterUpdateForm(forms.ModelForm):
                     ValidationError(errors)
                 )
         return password1
+
+
+class EmailVerificationForm(forms.Form):
+    """Form para validar código de verificação de email"""
+    code = forms.CharField(
+        max_length=6,
+        min_length=6,
+        required=True,
+        label='Código de Verificação',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': '000000',
+            'autocomplete': 'off',
+            'maxlength': '6',
+            'pattern': '[0-9]{6}',
+            'inputmode': 'numeric'
+        }),
+        help_text='Digite o código de 6 dígitos enviado para seu email.'
+    )
+
+    def clean_code(self):
+        code = self.cleaned_data.get('code')
+
+        if not code.isdigit():
+            raise ValidationError("O código deve conter apenas números.", code='invalid')
+
+        if len(code) != 6:
+            raise ValidationError("O código deve ter exatamente 6 dígitos.", code='invalid')
+
+        return code

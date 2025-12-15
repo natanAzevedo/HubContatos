@@ -36,3 +36,31 @@ class CategoryAdmin(admin.ModelAdmin):
     ordering = 'name',
     search_fields = 'name',
     list_per_page = 20
+
+@admin.register(models.EmailVerification)
+class EmailVerificationAdmin(admin.ModelAdmin):
+    list_display = 'id', 'user', 'code', 'created_at', 'expires_at', 'is_verified',
+    ordering = '-created_at',
+    list_filter = 'is_verified', 'created_at',
+    search_fields = 'user__email', 'user__username', 'code',
+    list_per_page = 20
+    readonly_fields = 'created_at',
+    
+    fieldsets = (
+        ('Usuário', {
+            'fields': ('user',)
+        }),
+        ('Código', {
+            'fields': ('code', 'is_verified')
+        }),
+        ('Datas', {
+            'fields': ('created_at', 'expires_at'),
+        }),
+    )
+    
+@admin.register(models.Profile)
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = 'id', 'user', 'public_id', 'created_at',
+    ordering = '-id',
+    search_fields = 'user__username', 'user__email', 'public_id',
+    list_per_page = 20

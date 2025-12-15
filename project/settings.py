@@ -133,6 +133,16 @@ else:
     # Configuração para desenvolvimento (Sistema de arquivos local)
     DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 
+# Email Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('SMTP_PORT', '587'))
+EMAIL_USE_TLS = os.environ.get('SMTP_SECURE', 'false').lower() != 'true'
+EMAIL_USE_SSL = os.environ.get('SMTP_SECURE', 'false').lower() == 'true'
+EMAIL_HOST_USER = os.environ.get('SMTP_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('SMTP_FROM', EMAIL_HOST_USER)
+
 # Carregamento de configurações locais (opcional, bom para manter)
 try:
     from project.local_settings import *
