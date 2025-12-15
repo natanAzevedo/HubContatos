@@ -141,6 +141,7 @@ EMAIL_USE_TLS = os.environ.get('SMTP_SECURE', 'false').lower() != 'true'
 EMAIL_USE_SSL = os.environ.get('SMTP_SECURE', 'false').lower() == 'true'
 EMAIL_HOST_USER = os.environ.get('SMTP_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
+EMAIL_TIMEOUT = 10  # Timeout de 10 segundos para conexão SMTP
 DEFAULT_FROM_EMAIL = os.environ.get('SMTP_FROM', EMAIL_HOST_USER)
 
 # Carregamento de configurações locais (opcional, bom para manter)

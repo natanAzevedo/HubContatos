@@ -39,16 +39,16 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(models.EmailVerification)
 class EmailVerificationAdmin(admin.ModelAdmin):
-    list_display = 'id', 'user', 'code', 'created_at', 'expires_at', 'is_verified',
+    list_display = 'id', 'email', 'code', 'created_at', 'expires_at', 'is_verified',
     ordering = '-created_at',
     list_filter = 'is_verified', 'created_at',
-    search_fields = 'user__email', 'user__username', 'code',
+    search_fields = 'email', 'code',
     list_per_page = 20
     readonly_fields = 'created_at',
     
     fieldsets = (
-        ('Usuário', {
-            'fields': ('user',)
+        ('Email', {
+            'fields': ('email',)
         }),
         ('Código', {
             'fields': ('code', 'is_verified')

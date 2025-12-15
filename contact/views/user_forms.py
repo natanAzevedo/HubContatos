@@ -10,6 +10,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
+import threading
 
 def register(request):
     form = RegisterForm()
@@ -18,27 +19,33 @@ def register(request):
         form = RegisterForm(request.POST)
 
         if form.is_valid():
-            # Salva o usuário como inativo
-            user = form.save(commit=False)
-            user.is_active = False
-            user.save()
+            # Salva dados temporariamente na sessão (NÃO cria usuário ainda)
+            user_data = {
+                'username': form.cleaned_data['username'],
+                'first_name': form.cleaned_data['first_name'],
+                'last_name': form.cleaned_data['last_name'],
+                'email': form.cleaned_data['email'],
+                'password': form.cleaned_data['password1'],
+            }
+            request.session['pending_user'] = user_data
             
             # Gera código de verificação
             code = EmailVerification.generate_code()
             expires_at = timezone.now() + timedelta(hours=24)
             
-            # Salva o código no banco
+            # Salva o código no banco (sem usuário)
             verification = EmailVerification.objects.create(
-                user=user,
+                email=user_data['email'],
                 code=code,
                 expires_at=expires_at
             )
             
-            # Envia email com o código
-            try:
-                send_mail(
-                    subject='HubContatos - Verifique seu email',
-                    message=f'''Olá {user.first_name}!
+            # Função para enviar email de forma assíncrona
+            def send_verification_email():
+                try:
+                    send_mail(
+                        subject='HubContatos - Verifique seu email',
+                        message=f'''Olá {user_data['first_name']}!
 
 Bem-vindo ao HubContatos! 
 
@@ -50,16 +57,21 @@ Se você não solicitou este cadastro, ignore este email.
 
 Atenciosamente,
 Equipe HubContatos''',
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                    fail_silently=False,
-                )
-                messages.success(request, f'Cadastro realizado! Enviamos um código de verificação para {user.email}')
-                return redirect('contact:verify_email', user_id=user.id)
-            except Exception as e:
-                user.delete()
-                messages.error(request, f'Erro ao enviar email. Tente novamente.')
-                print(f"Erro ao enviar email: {e}")
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[user_data['email']],
+                        fail_silently=True,
+                    )
+                except Exception as e:
+                    print(f"Erro ao enviar email de verificação: {e}")
+            
+            # Envia email em background thread
+            email_thread = threading.Thread(target=send_verification_email)
+            email_thread.daemon = True
+            email_thread.start()
+            
+            # Redireciona imediatamente sem esperar o email
+            messages.success(request, f'Enviamos um código de verificação para {user_data["email"]}')
+            return redirect('contact:verify_email')
 
     return render(
         request,
@@ -125,19 +137,19 @@ def logout_view(request):
     return redirect('contact:login')
 
 
-def verify_email(request, user_id):
+def verify_email(request):
     """View para verificação de email"""
-    user = get_object_or_404(auth.get_user_model(), id=user_id)
+    # Recupera dados temporários da sessão
+    user_data = request.session.get('pending_user')
     
-    # Se o usuário já está ativo, redireciona para o login
-    if user.is_active:
-        messages.info(request, 'Este email já foi verificado. Faça login.')
-        return redirect('contact:login')
+    if not user_data:
+        messages.error(request, 'Sessão expirada. Por favor, faça o cadastro novamente.')
+        return redirect('contact:register')
     
     # Busca verificação pendente
     try:
         verification = EmailVerification.objects.filter(
-            user=user,
+            email=user_data['email'],
             is_verified=False
         ).latest('created_at')
     except EmailVerification.DoesNotExist:
@@ -154,7 +166,21 @@ def verify_email(request, user_id):
             success, message = verification.verify(code)
             
             if success:
-                messages.success(request, message)
+                # AGORA SIM cria o usuário no banco
+                User = auth.get_user_model()
+                user = User.objects.create_user(
+                    username=user_data['username'],
+                    email=user_data['email'],
+                    password=user_data['password'],
+                    first_name=user_data['first_name'],
+                    last_name=user_data['last_name'],
+                    is_active=True
+                )
+                
+                # Limpa dados temporários da sessão
+                del request.session['pending_user']
+                
+                messages.success(request, 'Email verificado! Cadastro concluído com sucesso.')
                 return redirect('contact:login')
             else:
                 messages.error(request, message)
@@ -164,39 +190,38 @@ def verify_email(request, user_id):
         'contact/verify_email.html',
         {
             'form': form,
-            'user_email': user.email,
-            'user_id': user_id,
-            'user_public_id': getattr(user, 'profile').public_id if hasattr(user, 'profile') else None,
+            'user_email': user_data['email'],
         }
     )
 
 
-def resend_verification_code(request, user_id):
+def resend_verification_code(request):
     """Reenvia código de verificação"""
-    user = get_object_or_404(auth.get_user_model(), id=user_id)
+    user_data = request.session.get('pending_user')
     
-    if user.is_active:
-        messages.info(request, 'Este email já foi verificado.')
-        return redirect('contact:login')
+    if not user_data:
+        messages.error(request, 'Sessão expirada. Por favor, faça o cadastro novamente.')
+        return redirect('contact:register')
     
     # Invalida códigos anteriores
-    EmailVerification.objects.filter(user=user, is_verified=False).update(is_verified=True)
+    EmailVerification.objects.filter(email=user_data['email'], is_verified=False).update(is_verified=True)
     
     # Gera novo código
     code = EmailVerification.generate_code()
     expires_at = timezone.now() + timedelta(hours=24)
     
     verification = EmailVerification.objects.create(
-        user=user,
+        email=user_data['email'],
         code=code,
         expires_at=expires_at
     )
     
-    # Envia email
-    try:
-        send_mail(
-            subject='HubContatos - Novo código de verificação',
-            message=f'''Olá {user.first_name}!
+    # Função para enviar email de forma assíncrona
+    def send_resend_email():
+        try:
+            send_mail(
+                subject='HubContatos - Novo código de verificação',
+                message=f'''Olá {user_data['first_name']}!
 
 Você solicitou um novo código de verificação.
 
@@ -206,13 +231,17 @@ Este código expira em 24 horas.
 
 Atenciosamente,
 Equipe HubContatos''',
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
-        messages.success(request, f'Novo código enviado para {user.email}')
-    except Exception as e:
-        messages.error(request, 'Erro ao enviar email. Tente novamente.')
-        print(f"Erro ao enviar email: {e}")
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user_data['email']],
+                fail_silently=True,
+            )
+        except Exception as e:
+            print(f"Erro ao reenviar email de verificação: {e}")
     
-    return redirect('contact:verify_email', user_id=user_id)
+    # Envia email em background thread
+    email_thread = threading.Thread(target=send_resend_email)
+    email_thread.daemon = True
+    email_thread.start()
+    
+    messages.success(request, f'Novo código enviado para {user_data["email"]}')
+    return redirect('contact:verify_email')

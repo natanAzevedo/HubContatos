@@ -43,14 +43,14 @@ class EmailVerification(models.Model):
         verbose_name = 'Verificação de Email'
         verbose_name_plural = 'Verificações de Email'
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='Usuário')
+    email = models.EmailField(max_length=254, verbose_name='Email')
     code = models.CharField(max_length=6, verbose_name='Código')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Criado em')
     expires_at = models.DateTimeField(verbose_name='Expira em')
     is_verified = models.BooleanField(default=False, verbose_name='Verificado')
     
     def __str__(self):
-        return f"Código {self.code} para {self.user.email}"
+        return f"Código {self.code} para {self.email}"
     
     @staticmethod
     def generate_code():
@@ -74,10 +74,6 @@ class EmailVerification(models.Model):
         
         self.is_verified = True
         self.save()
-        
-        # Ativa o usuário
-        self.user.is_active = True
-        self.user.save()
         
         return True, "Email verificado com sucesso!"
 

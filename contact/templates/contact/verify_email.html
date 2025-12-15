@@ -17,7 +17,7 @@
         <strong>{{ user_email }}</strong>
       </p>
    
-      <form method="POST" action="{% url 'contact:verify_email' user_id %}" novalidate>
+      <form method="POST" action="{% url 'contact:verify_email' %}" novalidate>
         {% csrf_token %}
         
         <div class="form-content">
@@ -56,7 +56,7 @@
       
       <div class="verification-help">
         <p>Não recebeu o código?</p>
-        <a href="{% url 'contact:resend_verification' user_id %}" class="resend-link">
+        <a href="{% url 'contact:resend_verification' %}" class="resend-link">
           Reenviar código
         </a>
       </div>
