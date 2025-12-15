@@ -10,6 +10,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
+import threading
 
 def register(request):
     form = RegisterForm()
@@ -40,11 +41,12 @@ def register(request):
                 expires_at=expires_at
             )
             
-            # Envia email de verificação
-            try:
-                send_mail(
-                    subject='HubContatos - Verifique seu email',
-                    message=f'''Olá {user_data['first_name']}!
+            # Função para enviar email
+            def send_verification_email():
+                try:
+                    send_mail(
+                        subject='HubContatos - Verifique seu email',
+                        message=f'''Olá {user_data['first_name']}!
 
 Bem-vindo ao HubContatos! 
 
@@ -56,14 +58,22 @@ Se você não solicitou este cadastro, ignore este email.
 
 Atenciosamente,
 Equipe HubContatos''',
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user_data['email']],
-                    fail_silently=False,
-                )
-                print(f"[DEBUG] Email enviado para {user_data['email']}")
-            except Exception as e:
-                print(f"[ERRO] Falha ao enviar email: {e}")
-                messages.warning(request, 'Não foi possível enviar o email. Verifique sua caixa de spam ou solicite novo código.')
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[user_data['email']],
+                        fail_silently=True,
+                    )
+                    print(f"[DEBUG] Email enviado para {user_data['email']}")
+                except Exception as e:
+                    print(f"[ERRO] Falha ao enviar email: {e}")
+            
+            # Em produção (Render), usa thread para não bloquear worker
+            if not settings.DEBUG:
+                email_thread = threading.Thread(target=send_verification_email)
+                email_thread.daemon = True
+                email_thread.start()
+            else:
+                # Em desenvolvimento, envia síncrono para facilitar debug
+                send_verification_email()
             
             # Redireciona imediatamente sem esperar o email
             messages.success(request, f'Enviamos um código de verificação para {user_data["email"]}')
@@ -214,11 +224,12 @@ def resend_verification_code(request):
         expires_at=expires_at
     )
     
-    # Envia email de verificação
-    try:
-        send_mail(
-            subject='HubContatos - Novo código de verificação',
-            message=f'''Olá {user_data['first_name']}!
+    # Função para enviar email
+    def send_resend_email():
+        try:
+            send_mail(
+                subject='HubContatos - Novo código de verificação',
+                message=f'''Olá {user_data['first_name']}!
 
 Você solicitou um novo código de verificação.
 
@@ -228,15 +239,22 @@ Este código expira em 24 horas.
 
 Atenciosamente,
 Equipe HubContatos''',
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user_data['email']],
-            fail_silently=False,
-        )
-        print(f"[DEBUG] Novo código enviado para {user_data['email']}")
-    except Exception as e:
-        print(f"[ERRO] Falha ao reenviar email: {e}")
-        messages.error(request, 'Erro ao enviar email. Tente novamente.')
-        return redirect('contact:verify_email')
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user_data['email']],
+                fail_silently=True,
+            )
+            print(f"[DEBUG] Novo código enviado para {user_data['email']}")
+        except Exception as e:
+            print(f"[ERRO] Falha ao reenviar email: {e}")
+    
+    # Em produção (Render), usa thread para não bloquear worker
+    if not settings.DEBUG:
+        email_thread = threading.Thread(target=send_resend_email)
+        email_thread.daemon = True
+        email_thread.start()
+    else:
+        # Em desenvolvimento, envia síncrono
+        send_resend_email()
     
     messages.success(request, f'Novo código enviado para {user_data["email"]}')
     return redirect('contact:verify_email')
