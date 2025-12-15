@@ -11,6 +11,42 @@ from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 import threading
+import resend
+
+def send_email_resend(subject, message, to_email):
+    """Envia email usando Resend API ou SMTP"""
+    # Tenta usar Resend se tiver API key configurada
+    resend_key = getattr(settings, 'RESEND_API_KEY', '')
+    
+    if resend_key and not settings.DEBUG:
+        try:
+            resend.api_key = resend_key
+            from_email = getattr(settings, 'RESEND_FROM_EMAIL', 'onboarding@resend.dev')
+            resend.Emails.send({
+                "from": from_email,
+                "to": to_email,
+                "subject": subject,
+                "html": f"<div style='font-family: Arial, sans-serif; white-space: pre-wrap;'>{message}</div>"
+            })
+            print(f"[DEBUG] Email enviado via Resend para {to_email}")
+            return True
+        except Exception as e:
+            print(f"[ERRO] Falha no Resend, tentando SMTP: {e}")
+    
+    # Fallback: SMTP
+    try:
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[to_email],
+            fail_silently=False,
+        )
+        print(f"[DEBUG] Email enviado via SMTP para {to_email}")
+        return True
+    except Exception as e:
+        print(f"[ERRO] Falha ao enviar email: {e}")
+        return False
 
 def register(request):
     form = RegisterForm()
@@ -43,10 +79,7 @@ def register(request):
             
             # Função para enviar email
             def send_verification_email():
-                try:
-                    send_mail(
-                        subject='HubContatos - Verifique seu email',
-                        message=f'''Olá {user_data['first_name']}!
+                email_message = f'''Olá {user_data['first_name']}!
 
 Bem-vindo ao HubContatos! 
 
@@ -57,14 +90,12 @@ Este código expira em 24 horas.
 Se você não solicitou este cadastro, ignore este email.
 
 Atenciosamente,
-Equipe HubContatos''',
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=[user_data['email']],
-                        fail_silently=True,
-                    )
-                    print(f"[DEBUG] Email enviado para {user_data['email']}")
-                except Exception as e:
-                    print(f"[ERRO] Falha ao enviar email: {e}")
+Equipe HubContatos'''
+                send_email_resend(
+                    subject='HubContatos - Verifique seu email',
+                    message=email_message,
+                    to_email=user_data['email']
+                )
             
             # Em produção (Render), usa thread para não bloquear worker
             if not settings.DEBUG:
@@ -226,10 +257,7 @@ def resend_verification_code(request):
     
     # Função para enviar email
     def send_resend_email():
-        try:
-            send_mail(
-                subject='HubContatos - Novo código de verificação',
-                message=f'''Olá {user_data['first_name']}!
+        email_message = f'''Olá {user_data['first_name']}!
 
 Você solicitou um novo código de verificação.
 
@@ -238,14 +266,12 @@ Seu novo código é: {code}
 Este código expira em 24 horas.
 
 Atenciosamente,
-Equipe HubContatos''',
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user_data['email']],
-                fail_silently=True,
-            )
-            print(f"[DEBUG] Novo código enviado para {user_data['email']}")
-        except Exception as e:
-            print(f"[ERRO] Falha ao reenviar email: {e}")
+Equipe HubContatos'''
+        send_email_resend(
+            subject='HubContatos - Novo código de verificação',
+            message=email_message,
+            to_email=user_data['email']
+        )
     
     # Em produção (Render), usa thread para não bloquear worker
     if not settings.DEBUG:

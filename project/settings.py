@@ -133,25 +133,20 @@ else:
     # Configuração para desenvolvimento (Sistema de arquivos local)
     DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 
-# Email Configuration
-# Em produção (Render), usa SendGrid. Em desenvolvimento, usa SMTP Gmail
-SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
+# Email Configuration - Apenas SMTP
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('SMTP_PORT', '587'))
+EMAIL_USE_TLS = os.environ.get('SMTP_SECURE', 'false').lower() != 'true'
+EMAIL_USE_SSL = os.environ.get('SMTP_SECURE', 'false').lower() == 'true'
+EMAIL_HOST_USER = os.environ.get('SMTP_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
+EMAIL_TIMEOUT = 10
+DEFAULT_FROM_EMAIL = os.environ.get('SMTP_FROM', EMAIL_HOST_USER)
 
-if SENDGRID_API_KEY and not DEBUG:
-    # Produção: SendGrid (funciona no Render sem bloqueio de portas)
-    EMAIL_BACKEND = 'sendgrid_backend.SendgridBackend'
-    DEFAULT_FROM_EMAIL = os.environ.get('SENDGRID_FROM_EMAIL', 'agendacontatosite@gmail.com')
-else:
-    # Desenvolvimento: SMTP Gmail
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
-    EMAIL_PORT = int(os.environ.get('SMTP_PORT', '587'))
-    EMAIL_USE_TLS = os.environ.get('SMTP_SECURE', 'false').lower() != 'true'
-    EMAIL_USE_SSL = os.environ.get('SMTP_SECURE', 'false').lower() == 'true'
-    EMAIL_HOST_USER = os.environ.get('SMTP_USER', '')
-    EMAIL_HOST_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
-    EMAIL_TIMEOUT = 10
-    DEFAULT_FROM_EMAIL = os.environ.get('SMTP_FROM', EMAIL_HOST_USER)
+# Resend (opcional, usado se RESEND_API_KEY estiver definido no ambiente)
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+RESEND_FROM_EMAIL = os.environ.get('RESEND_FROM_EMAIL')
 
 # Carregamento de configurações locais (opcional, bom para manter)
 try:
