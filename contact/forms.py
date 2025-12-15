@@ -113,11 +113,10 @@ class ContactForm(forms.ModelForm):
 class RegisterForm(UserCreationForm):
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email', 'username', 'password1', 'password2',)
+        fields = ('first_name', 'last_name', 'username', 'password1', 'password2',)
         labels = {
             'first_name': 'Nome',
             'last_name': 'Sobrenome',
-            'email': 'E-mail',
             'username': 'Nome de usuário',
             'password1': 'Senha',
             'password2': 'Confirmação de senha',
@@ -125,7 +124,6 @@ class RegisterForm(UserCreationForm):
         widgets = {
             'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Digite seu nome'}),
             'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Digite seu sobrenome'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'seu@email.com'}),
             'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome de usuário único'}),
         }
         help_texts = {
@@ -174,20 +172,6 @@ class RegisterForm(UserCreationForm):
             raise ValidationError("Este nome de usuário já está em uso.", code='invalid')
 
         return username
-
-    def clean_email(self):
-        email = self.cleaned_data.get('email')
-
-        if not email:
-            raise ValidationError("E-mail é obrigatório.", code='invalid')
-
-        if '@' not in email or '.' not in email.split('@')[-1]:
-            raise ValidationError("Digite um endereço de e-mail válido.", code='invalid')
-
-        if User.objects.filter(email=email).exists():
-            raise ValidationError("Este e-mail já está cadastrado.", code='invalid')
-
-        return email.lower().strip()
 
 class RegisterUpdateForm(forms.ModelForm):
     first_name = forms.CharField(
